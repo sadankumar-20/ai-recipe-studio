@@ -331,11 +331,7 @@ git push origin feature/new-feature
 
 ---
 
-# 📄 License
 
-This project is licensed under the MIT License.
-
----
 
 # 👨‍💻 Developer
 
