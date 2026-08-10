@@ -4,7 +4,6 @@ import { requestOtp, verifyOtp, createSession, getSession, destroySession, OtpVe
 
 export const authRouter = Router();
 
-const isDev = process.env.NODE_ENV !== "production";
 
 authRouter.post("/request-otp", (req, res) => {
   const parsed = requestOtpSchema.safeParse(req.body);
@@ -20,9 +19,9 @@ authRouter.post("/request-otp", (req, res) => {
   console.log(`\n📧  OTP for ${parsed.data.email}: ${code}  (expires in 5 min)\n`);
 
   return res.status(200).json({
-    message: "OTP generated. Check the server terminal.",
+    message: "Demo mode: your code is shown below.",
     expiresAt,
-    ...(isDev ? { devOtp: code } : {}),
+    devOtp: code,
   });
 });
 
