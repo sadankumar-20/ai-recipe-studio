@@ -22,6 +22,7 @@ import { useAuthStore } from "../store/authStore";
 import { useHistoryStore } from "../store/historyStore";
 import type { Recipe } from "../types/recipe.types";
 import RefineBar from "../components/recipe/RefineBar";
+import { StaggerContainer, StaggerItem } from "../components/motion/Stagger";
 import {
   generateRecipeStreaming,
   refineRecipe,
@@ -173,26 +174,32 @@ export default function Workspace() {
 
             {!isLoading && (
               <>
-                <RecipeHeader recipe={recipe} />
-                <RefineBar onRefine={handleRefine} isRefining={isRefining} />
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <IngredientChecklist recipe={recipe} />
-                  <ServingSlider />
-                </div>
-                <CookingSteps steps={recipe.steps} />
-                <NutritionCards nutrition={recipe.nutrition} />
-                <IngredientSwaps swaps={recipe.ingredientSwaps} />
-                <CookingTips tips={recipe.tips} />
+                <StaggerContainer className="space-y-5" key={recipe.title}>
+                <StaggerItem><RecipeHeader recipe={recipe} /></StaggerItem>
+                <StaggerItem><RefineBar onRefine={handleRefine} isRefining={isRefining} /></StaggerItem>
+                <StaggerItem>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <IngredientChecklist recipe={recipe} />
+                    <ServingSlider />
+                  </div>
+                </StaggerItem>
+                <StaggerItem><CookingSteps steps={recipe.steps} /></StaggerItem>
+                <StaggerItem><NutritionCards nutrition={recipe.nutrition} /></StaggerItem>
+                <StaggerItem><IngredientSwaps swaps={recipe.ingredientSwaps} /></StaggerItem>
+                <StaggerItem><CookingTips tips={recipe.tips} /></StaggerItem>
 
                 {sourceContext && (
-                  <RelatedDishes
-                    dishes={relatedDishes}
-                    currentDishName={sourceContext.varietyName}
-                    onSelect={handleSelectRelated}
-                  />
+                  <StaggerItem>
+                    <RelatedDishes
+                      dishes={relatedDishes}
+                      currentDishName={sourceContext.varietyName}
+                      onSelect={handleSelectRelated}
+                    />
+                  </StaggerItem>
                 )}
 
-                <PreparedFeedback recipeTitle={recipe.title} />
+                <StaggerItem><PreparedFeedback recipeTitle={recipe.title} /></StaggerItem>
+              </StaggerContainer>
               </>
             )}
           </div>
