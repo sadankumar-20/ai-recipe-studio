@@ -126,6 +126,14 @@ export default function Workspace() {
 
       <div className="sticky top-[65px] z-30 border-b border-line/60 bg-ink/80 px-4 py-3 backdrop-blur-lg sm:px-6 sm:py-4">
         <div className="mx-auto max-w-3xl">
+          <div className="mb-2.5 flex items-center justify-between">
+            <Link
+              to="/"
+              className="focus-ring inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-white/50 transition hover:text-white"
+            >
+              <ArrowLeft size={13} /> Back to home
+            </Link>
+          </div>
           <SearchBar onGenerate={handleRegenerate} isLoading={isLoading} />
           <AnimatePresence>
             {activeError && (
