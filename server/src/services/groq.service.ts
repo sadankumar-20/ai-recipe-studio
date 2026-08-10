@@ -13,7 +13,7 @@
 // Nothing leaves this file without passing recipeSchema.
 // ============================================================================
 
-import Groq from "groq-sdk";
+import { Groq } from "groq-sdk";
 import {
   SYSTEM_PROMPT,
   buildUserPrompt,
