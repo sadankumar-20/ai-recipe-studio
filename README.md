@@ -262,6 +262,8 @@ Don't forget to give the project a star! ⭐
 
 **Sadan K** — B.Tech, Data Science & AI, IIIT Dharwad
 
+[LinkedIn](https://www.linkedin.com/in/sadankumar28) · [GitHub](https://github.com/sadankumar-20)
+
 Project Link: [https://github.com/sadankumar-20/ai-recipe-studio](https://github.com/sadankumar-20/ai-recipe-studio)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -278,7 +280,7 @@ Project Link: [https://github.com/sadankumar-20/ai-recipe-studio](https://github
 [issues-shield]: https://img.shields.io/github/issues/sadankumar-20/ai-recipe-studio.svg?style=for-the-badge
 [issues-url]: https://github.com/sadankumar-20/ai-recipe-studio/issues
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: www.linkedin.com/in/sadankumar28
+[linkedin-url]: https://www.linkedin.com/in/sadankumar28
 [React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
 [React-url]: https://react.dev/
 [TypeScript]: https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white
