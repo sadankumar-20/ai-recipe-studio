@@ -1,361 +1,142 @@
 # 🍳 AI Recipe Studio — AI-Powered Recipe Generator
 
-A full-stack AI-powered web application that transforms available ingredients into personalized recipes using Large Language Models (LLMs). Simply enter the ingredients you have, and AI Recipe Studio generates complete recipes with cooking instructions, making everyday meal planning easier and smarter.
+A full-stack AI web application that turns the ingredients you already have into complete, interactive recipes — with live token-by-token streaming, an in-place refinement loop, and a passwordless demo login.
+
+## 🌐 Live Demo
+
+**App:** https://ai-recipe-studio-8xe6.vercel.app  
+**API:** https://ai-recipe-studio.vercel.app
+
+> **Demo auth:** no email provider is configured by design — the 6-digit OTP is displayed directly on the login screen, so anyone can try the app with any email address.
 
 ---
 
-# 🚀 Live Application
+## ✨ Features
 
-### 🌐 Live Demo
-https://ai-recipe-studio-8xe6-frgqcjkko-buildingon.vercel.app
-
----
-
-# 📌 About the Project
-
-Many people struggle to decide what to cook with the ingredients already available in their kitchen. Traditional recipe websites require users to search manually and often suggest recipes that require additional ingredients.
-
-AI Recipe Studio solves this problem by allowing users to enter the ingredients they already have and using AI to generate personalized recipes instantly.
-
-The application combines a modern React frontend with an Express backend and integrates the Groq LLM API to generate recipes dynamically.
-
-The goal of this project is to demonstrate how Generative AI can be integrated into a real-world full-stack application while maintaining an intuitive and responsive user experience.
+- **AI recipe generation** — enter ingredients (typed or by voice) and get a complete recipe: steps with tips and timings, nutrition, ingredient swaps, and serving-size scaling
+- **Live streaming** — recipes stream token-by-token over Server-Sent Events; the title and description appear on the loading screen while the model is still writing
+- **Refinement loop** — edit the recipe in place ("make it spicier", "swap the paneer") instead of regenerating from scratch
+- **Cuisine explorer** — browse popular cuisines and jump between related dishes
+- **Passwordless login** — OTP-based auth with stateless, HMAC-signed codes and session tokens (no database required)
+- **Per-user history** — every generated recipe is saved to the signed-in user's drawer and can be reopened exactly as generated
+- **Interactive cooking tools** — ingredient checklist, serving slider, step cards, dish photos via Pexels
+- **Dark/light theme**, responsive layout, schema-validated AI output on both server and client
 
 ---
 
-# ✨ Key Features
-
-## 🤖 AI Recipe Generation
-Generate complete recipes using Groq's Large Language Model based on the ingredients provided by the user.
-
----
-
-## 🥗 Ingredient-Based Search
-
-Search recipes simply by entering available ingredients instead of searching recipe names.
-
----
-
-## 🎙️ Voice Search
-
-Supports voice input, allowing users to speak ingredients instead of typing them manually.
-
----
-
-## 🔍 Smart Ingredient Suggestions
-
-Provides dynamic ingredient suggestions while typing for a smoother search experience.
-
----
-
-## 🍛 Popular Recipe Categories
-
-Browse popular cuisines and recipe categories directly from the landing page.
-
----
-
-## 🎨 Modern User Interface
-
-- Clean minimal design
-- Responsive layout
-- Interactive animations
-- Mobile-friendly experience
-- Dark and Light theme support
-
----
-
-## ⚡ Optimized Performance
-
-- Debounced search
-- Fast API communication
-- Efficient state management
-- Component-based architecture
-
----
-
-## ☁️ Cloud Deployment
-
-Frontend and backend are deployed using Vercel for fast and reliable access.
-
----
-
-# 🧠 AI Workflow
-
-The recipe generation pipeline follows these steps:
+## 🏗️ Architecture
 
 ```
-User Ingredients
-        │
-        ▼
-React Frontend
-        │
-        ▼
-Express Backend API
-        │
-        ▼
-Groq AI Model
-        │
-        ▼
-Recipe Generation
-        │
-        ▼
-Structured JSON Response
-        │
-        ▼
-Interactive Recipe Interface
+React (Vite) SPA ── axios / fetch+SSE ──▶ Express API (Vercel serverless)
+     │                                        │
+  Zustand + React Query                   Groq LLM (streaming + JSON mode)
+  Zod response validation                 Pexels API · Zod request/response validation
 ```
 
----
+Two separate Vercel deployments from one monorepo:
 
-# 🔄 Application Workflow
+| Project  | Root directory | URL                              |
+|----------|----------------|----------------------------------|
+| Frontend | `client/`      | ai-recipe-studio-8xe6.vercel.app |
+| Backend  | `server/`      | ai-recipe-studio.vercel.app      |
 
-1. Open AI Recipe Studio
-2. Enter ingredients or use voice input
-3. Submit the request
-4. Backend validates the input
-5. Request is sent to Groq AI
-6. AI generates a personalized recipe
-7. Recipe is formatted and displayed
-8. Users can continue exploring new recipes
+**Serverless-first design decisions:**
 
----
-
-# 🛠️ Technology Stack
-
-## Frontend
-
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- React Router
+- Express runs as a single Vercel function (`server/api/index.ts`) with a catch-all rewrite — no `app.listen` in production
+- OTPs are **derived, not stored**: an HMAC of the email + a 5-minute time window, verifiable by any function instance
+- Session tokens are **signed payloads** (JWT-style), so no shared session store is needed across instances
+- The streamed recipe is only ever rendered from the final, schema-validated `complete` event — raw deltas drive the live preview only, and the client falls back to the non-streaming endpoint if the stream fails
 
 ---
 
-## Backend
+## 🛠️ Tech Stack
 
-- Node.js
-- Express.js
-- TypeScript
-
----
-
-## AI Integration
-
-- Groq API
-- Large Language Model (LLM)
+**Frontend:** React 19 · TypeScript · Vite · Tailwind CSS 4 · React Router · TanStack Query · Zustand · Framer Motion · Zod · Axios  
+**Backend:** Node.js · Express · TypeScript · Zod  
+**AI & data:** Groq (Llama 3.3 70B) — streaming + JSON mode · Pexels API  
+**Deployment:** Vercel (two projects, serverless functions, SSE streaming)
 
 ---
 
-## State Management
-
-- Zustand
-
----
-
-## Development Tools
-
-- Git
-- GitHub
-- ESLint
-- npm
-
----
-
-## Deployment
-
-- Vercel
-
----
-
-# 📂 Project Structure
-
-```
-ai-recipe-studio/
-│
-├── client/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── hooks/
-│   │   ├── services/
-│   │   ├── store/
-│   │   ├── utils/
-│   │   ├── types/
-│   │   ├── schemas/
-│   │   ├── data/
-│   │   └── constants/
-│   │
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── server/
-│   ├── src/
-│   ├── package.json
-│   └── tsconfig.json
-│
-└── README.md
-```
-
----
-
-# 💻 Run Locally
-
-## 1. Clone the Repository
+## 💻 Run Locally
 
 ```bash
 git clone https://github.com/sadankumar-20/ai-recipe-studio.git
-```
-
----
-
-## 2. Navigate to the Project
-
-```bash
 cd ai-recipe-studio
 ```
 
----
+**Backend** (runs on http://localhost:4000):
 
-## 3. Install Frontend Dependencies
+```bash
+cd server
+npm install
+npm run dev
+```
+
+**Frontend** (runs on http://localhost:5173):
 
 ```bash
 cd client
-
 npm install
-
 npm run dev
 ```
 
-Runs on:
+### Environment variables
+
+Create `server/.env`:
 
 ```
-http://localhost:5173
+GROQ_API_KEY=your_groq_api_key
+PEXELS_API_KEY=your_pexels_api_key
+AUTH_SECRET=any_long_random_string
+# optional: GROQ_MODEL=llama-3.3-70b-versatile (default)
+# optional: CLIENT_ORIGIN=http://localhost:5173 (default)
 ```
 
----
+Optional `client/.env` (defaults to localhost:4000):
 
-## 4. Install Backend Dependencies
-
-```bash
-cd ../server
-
-npm install
-
-npm run dev
 ```
-
----
-
-# 🔑 Environment Variables
-
-Create a `.env` file inside the **server** directory.
-
-```env
-GROQ_API_KEY=YOUR_GROQ_API_KEY
+VITE_API_URL=http://localhost:4000
 ```
 
 ---
 
-# 📸 Screenshots
+## 📂 Project Structure
 
-> Add screenshots of the following pages:
-
-- Landing Page
-- AI Recipe Generator
-- Recipe Results
-- Workspace
-- Mobile View
-
----
-
-# 🎯 Learning Outcomes
-
-This project helped strengthen my understanding of:
-
-- Building scalable full-stack applications
-- Integrating Generative AI into web applications
-- API design using Express
-- State management with Zustand
-- Responsive UI development using React
-- TypeScript best practices
-- Component-based architecture
-- Production deployment with Vercel
+```
+ai-recipe-studio/
+├── client/                  # React SPA
+│   └── src/
+│       ├── pages/           # Landing, Login, Workspace
+│       ├── components/      # recipe/, landing/, layout/, search/, loading/
+│       ├── services/        # api, auth, recipe (incl. SSE streaming), images
+│       ├── store/           # zustand: auth, recipe, ingredients, history, ui
+│       ├── schemas/         # zod validation of AI responses
+│       └── data/            # cuisine explorer data
+└── server/                  # Express API (Vercel serverless)
+    ├── api/index.ts         # serverless entry
+    └── src/
+        ├── routes/          # auth, generate (+ /stream SSE), images, feedback
+        ├── services/        # groq, auth (stateless HMAC), pexels
+        ├── prompts/         # system + user prompt builders
+        └── validators/      # zod request/response schemas
+```
 
 ---
 
-# 🔮 Future Enhancements
+## 🔮 Roadmap
 
-Some planned improvements include:
-
-- User authentication
-- Save favorite recipes
-- Recipe history
-- Nutritional information
-- Grocery list generation
-- Meal planner
-- AI image generation for recipes
+- Favorites (star and browse saved recipes)
+- Real email OTP delivery (Resend) as an alternative to demo mode
+- Route-level code splitting
+- Grocery list generation & meal planner
 - Multi-language support
-- Recipe sharing
-- OCR-based ingredient detection
-- Barcode scanning for packaged foods
 
 ---
 
-# 🤝 Contributing
+## 👨‍💻 Developer
 
-Contributions are welcome!
-
-1. Fork the repository
-
-2. Create a feature branch
-
-```bash
-git checkout -b feature/new-feature
-```
-
-3. Commit your changes
-
-```bash
-git commit -m "feat: add new feature"
-```
-
-4. Push to GitHub
-
-```bash
-git push origin feature/new-feature
-```
-
-5. Open a Pull Request
-
----
-
-
-
-# 👨‍💻 Developer
-
-**Sadan K**
-
-B.Tech – Data Science & Artificial Intelligence  
-Indian Institute of Information Technology (IIIT) Dharwad
-
-### GitHub
-
-https://github.com/sadankumar-20
-
----
-
-# ⭐ Project Links
-
-### 🌐 Live Application
-
-https://ai-recipe-studio-8xe6-frgqcjkko-buildingon.vercel.app
-
-### 📂 GitHub Repository
-
-https://github.com/sadankumar-20/ai-recipe-studio
-
----
+**Sadan K** — B.Tech, Data Science & AI, IIIT Dharwad  
+GitHub: https://github.com/sadankumar-20
 
 ⭐ If you found this project interesting, consider giving it a star!
