@@ -1,79 +1,71 @@
 import crypto from "node:crypto";
 
-interface OtpEntry {
-  code: string;
-  expiresAt: number;
-  attempts: number;
-}
-
 interface SessionEntry {
   email: string;
   expiresAt: number;
 }
 
-const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 minute windows
 const SESSION_TTL_REMEMBER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SESSION_TTL_DEFAULT_MS = 24 * 60 * 60 * 1000; // 1 day
-const MAX_OTP_ATTEMPTS = 5;
 
-// In-memory stores. This is a demo/portfolio project with "no database" by
-// design — sessions and OTPs reset whenever the server restarts.
-const otpStore = new Map<string, OtpEntry>();
-const sessionStore = new Map<string, SessionEntry>();
+// Stateless auth: serverless instances don't share memory, so OTPs and
+// sessions are HMAC-signed instead of stored. AUTH_SECRET must be set in
+// production; all instances share it, so all can verify.
+const SECRET = process.env.AUTH_SECRET ?? "dev-insecure-secret-change-me";
 
-function generateCode(): string {
-  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+function hmac(data: string): string {
+  return crypto.createHmac("sha256", SECRET).update(data).digest("hex");
+}
+
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+function otpForWindow(email: string, windowIndex: number): string {
+  const digest = hmac(`otp:${email.toLowerCase()}:${windowIndex}`);
+  const num = parseInt(digest.slice(0, 8), 16) % 1_000_000;
+  return String(num).padStart(6, "0");
 }
 
 export function requestOtp(email: string): { code: string; expiresAt: number } {
-  const code = generateCode();
-  const expiresAt = Date.now() + OTP_TTL_MS;
-  otpStore.set(email.toLowerCase(), { code, expiresAt, attempts: 0 });
-  return { code, expiresAt };
+  const windowIndex = Math.floor(Date.now() / OTP_TTL_MS);
+  return { code: otpForWindow(email, windowIndex), expiresAt: (windowIndex + 1) * OTP_TTL_MS };
 }
 
 export class OtpVerificationError extends Error {}
 
 export function verifyOtp(email: string, code: string): void {
-  const key = email.toLowerCase();
-  const entry = otpStore.get(key);
-
-  if (!entry) {
-    throw new OtpVerificationError("No OTP was requested for this email, or it already expired.");
+  const w = Math.floor(Date.now() / OTP_TTL_MS);
+  // Accept the current and previous window so a code stays valid 5-10 min.
+  const valid = [w, w - 1].some((i) => safeEqual(otpForWindow(email, i), code));
+  if (!valid) {
+    throw new OtpVerificationError("Incorrect or expired code. Please try again.");
   }
-  if (Date.now() > entry.expiresAt) {
-    otpStore.delete(key);
-    throw new OtpVerificationError("This OTP has expired. Request a new one.");
-  }
-  if (entry.attempts >= MAX_OTP_ATTEMPTS) {
-    otpStore.delete(key);
-    throw new OtpVerificationError("Too many incorrect attempts. Request a new OTP.");
-  }
-  if (entry.code !== code) {
-    entry.attempts += 1;
-    throw new OtpVerificationError("Incorrect code. Please try again.");
-  }
-
-  otpStore.delete(key);
 }
 
 export function createSession(email: string, rememberDevice: boolean): { token: string; expiresAt: number } {
-  const token = crypto.randomUUID();
   const expiresAt = Date.now() + (rememberDevice ? SESSION_TTL_REMEMBER_MS : SESSION_TTL_DEFAULT_MS);
-  sessionStore.set(token, { email: email.toLowerCase(), expiresAt });
-  return { token, expiresAt };
+  const payload = Buffer.from(JSON.stringify({ email: email.toLowerCase(), expiresAt })).toString("base64url");
+  return { token: `${payload}.${hmac(`session:${payload}`)}`, expiresAt };
 }
 
 export function getSession(token: string): SessionEntry | null {
-  const entry = sessionStore.get(token);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    sessionStore.delete(token);
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return null;
+  if (!safeEqual(sig, hmac(`session:${payload}`))) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString());
+    if (typeof data.email !== "string" || typeof data.expiresAt !== "number") return null;
+    if (Date.now() > data.expiresAt) return null;
+    return { email: data.email, expiresAt: data.expiresAt };
+  } catch {
     return null;
   }
-  return entry;
 }
 
-export function destroySession(token: string): void {
-  sessionStore.delete(token);
+export function destroySession(_token: string): void {
+  // Stateless tokens can't be revoked server-side; logout means the client
+  // discards its token. Fine for this demo.
 }
