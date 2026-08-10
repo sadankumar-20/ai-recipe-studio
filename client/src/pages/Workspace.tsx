@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import SearchBar from "../components/search/SearchBar";
@@ -16,7 +17,7 @@ import CookingTips from "../components/recipe/CookingTips";
 import RelatedDishes from "../components/recipe/RelatedDishes";
 import PreparedFeedback from "../components/recipe/PreparedFeedback";
 import { useIngredientStore } from "../store/ingredientStore";
-import { useRecipeStore } from "../store/recipeStore";
+import { useRecipeStore, type RecipeSourceContext } from "../store/recipeStore";
 import { useAuthStore } from "../store/authStore";
 import { useHistoryStore } from "../store/historyStore";
 import type { Recipe } from "../types/recipe.types";
@@ -25,6 +26,7 @@ import {
   generateRecipeStreaming,
   refineRecipe,
   RecipeServiceError,
+  type GeneratePayload,
   type StreamProgress,
 } from "../services/recipe.service";
 import { getSiblingVarieties } from "../data/exploreData";
@@ -32,97 +34,80 @@ import { getSiblingVarieties } from "../data/exploreData";
 // ============================================================================
 // Workspace — where a generated recipe becomes an interactive cooking tool.
 //
-// Reads the current recipe from the store and renders it as separate typed
-// blocks (checklist, slider, step cards, nutrition, swaps, tips). Owns three
-// async flows, all built on the same service layer:
-//   handleRegenerate    → re-run generation from the current ingredient chips
-//   handleRefine        → edit the current recipe in place ("make it spicier")
-//   handleSelectRelated → jump to a sibling dish from the explorer context
-// While generating, streamPreview carries the title/description the model has
-// written so far, so the loading screen can show it live.
+// Async flows are handled by two React Query mutations:
+//   generateMutation → fresh generation (ingredients or a related dish),
+//                      streaming a live title/description preview
+//   refineMutation   → edit the current recipe in place
+// Loading and error state come from the mutation objects; the only local
+// state left is the transient stream preview.
 // ============================================================================
+
+function errorMessage(err: unknown): string | null {
+  if (!err) return null;
+  if (err instanceof RecipeServiceError && err.code === "ABORTED") return null;
+  return err instanceof RecipeServiceError ? err.message : "Something went wrong.";
+}
 
 export default function Workspace() {
   const { ingredients } = useIngredientStore();
   const { recipe, setRecipe, setError, sourceContext } = useRecipeStore();
   const user = useAuthStore((s) => s.user);
   const logDish = useHistoryStore((s) => s.logDish);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefining, setIsRefining] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
   const [streamPreview, setStreamPreview] = useState<StreamProgress | null>(null);
 
   // Every successful generation lands in the signed-in user's history drawer.
-  const recordHistory = (recipe: Recipe, ctx = sourceContext) => {
+  const recordHistory = (recipe: Recipe, ctx: RecipeSourceContext | null) => {
     if (user) logDish(user.email, recipe, ctx);
   };
 
-  const handleRegenerate = async () => {
-    if (ingredients.length === 0) return;
-    setIsLoading(true);
-    setLocalError(null);
+  const generateMutation = useMutation({
+    mutationFn: (vars: { payload: GeneratePayload; context: RecipeSourceContext | null }) =>
+      generateRecipeStreaming(vars.payload, setStreamPreview),
+    onSuccess: (next, vars) => {
+      setRecipe(next, vars.context);
+      recordHistory(next, vars.context);
+      if (vars.context) window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    onError: (err) => {
+      const message = errorMessage(err);
+      if (message) setError(message);
+    },
+    onSettled: () => setStreamPreview(null),
+  });
 
-    try {
-      const next = await generateRecipeStreaming({ ingredients }, setStreamPreview);
-      setRecipe(next);
-      recordHistory(next, null);
-    } catch (err) {
-      if (err instanceof RecipeServiceError && err.code === "ABORTED") return;
-      const message = err instanceof RecipeServiceError ? err.message : "Something went wrong.";
-      setLocalError(message);
-      setError(message);
-    } finally {
-      setIsLoading(false);
-      setStreamPreview(null);
-    }
-  };
-
-  // The refinement loop: send the instruction plus the recipe currently on
-  // screen; the old recipe stays visible until a validated replacement lands,
-  // so a failed refinement never blanks the page.
-  const handleRefine = async (instruction: string) => {
-    if (!recipe) return;
-    setIsRefining(true);
-    setLocalError(null);
-
-    try {
-      const next = await refineRecipe(instruction, recipe);
+  const refineMutation = useMutation({
+    mutationFn: (vars: { instruction: string; current: Recipe }) =>
+      refineRecipe(vars.instruction, vars.current),
+    onSuccess: (next) => {
       setRecipe(next, sourceContext);
-      recordHistory(next);
-    } catch (err) {
-      if (err instanceof RecipeServiceError && err.code === "ABORTED") return;
-      const message = err instanceof RecipeServiceError ? err.message : "Something went wrong.";
-      setLocalError(message);
-      setError(message);
-    } finally {
-      setIsRefining(false);
-    }
+      recordHistory(next, sourceContext);
+    },
+    onError: (err) => {
+      const message = errorMessage(err);
+      if (message) setError(message);
+    },
+  });
+
+  const isLoading = generateMutation.isPending;
+  const isRefining = refineMutation.isPending;
+  const activeError = errorMessage(generateMutation.error) ?? errorMessage(refineMutation.error);
+
+  const handleRegenerate = () => {
+    if (ingredients.length === 0) return;
+    generateMutation.mutate({ payload: { ingredients }, context: null });
   };
 
-  const handleSelectRelated = async (dishName: string) => {
-    if (!sourceContext) return;
-    setIsLoading(true);
-    setLocalError(null);
-    setStreamPreview(null);
+  const handleRefine = (instruction: string) => {
+    if (!recipe) return;
+    refineMutation.mutate({ instruction, current: recipe });
+  };
 
-    try {
-      const next = await generateRecipeStreaming(
-        { dishName, cuisineHint: sourceContext.cuisineLabel },
-        setStreamPreview
-      );
-      const nextContext = { ...sourceContext, varietyName: dishName };
-      setRecipe(next, nextContext);
-      recordHistory(next, nextContext);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err) {
-      if (err instanceof RecipeServiceError && err.code === "ABORTED") return;
-      const message = err instanceof RecipeServiceError ? err.message : "Something went wrong.";
-      setLocalError(message);
-      setError(message);
-    } finally {
-      setIsLoading(false);
-      setStreamPreview(null);
-    }
+  const handleSelectRelated = (dishName: string) => {
+    if (!sourceContext) return;
+    generateMutation.mutate({
+      payload: { dishName, cuisineHint: sourceContext.cuisineLabel },
+      context: { ...sourceContext, varietyName: dishName },
+    });
   };
 
   const relatedDishes = sourceContext
@@ -142,7 +127,7 @@ export default function Workspace() {
         <div className="mx-auto max-w-3xl">
           <SearchBar onGenerate={handleRegenerate} isLoading={isLoading} />
           <AnimatePresence>
-            {localError && (
+            {activeError && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -150,7 +135,7 @@ export default function Workspace() {
                 className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-center text-sm text-rose-300"
                 role="alert"
               >
-                {localError}
+                {activeError}
               </motion.p>
             )}
           </AnimatePresence>

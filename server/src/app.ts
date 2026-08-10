@@ -12,6 +12,8 @@ export function createApp() {
   app.use(cors({ origin }));
   app.use(express.json({ limit: "50kb" }));
 
+  app.get("/", (_req, res) => { res.json({ name: "ai-recipe-studio-api" }); });
+
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });
