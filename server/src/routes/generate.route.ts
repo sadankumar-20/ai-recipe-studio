@@ -101,7 +101,6 @@ generateRouter.post("/stream", async (req, res) => {
   };
 
   const upstream = new AbortController();
-  res.on("close", () => { if (!res.writableEnded) upstream.abort(); });
 
   try {
     const fullText = await streamRecipeText(
